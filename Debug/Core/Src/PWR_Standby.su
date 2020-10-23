@@ -1,0 +1,2 @@
+PWR_Standby.c:14:6:EnterStandbyPWR_Mode	16	static
+PWR_Standby.c:38:6:RUN_PWR_Mode_Init	16	static
