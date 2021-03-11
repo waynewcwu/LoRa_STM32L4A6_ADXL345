@@ -1,0 +1,11 @@
+LoRa_APP_slave.c:22:6:LoRa_USART	48	static
+LoRa_APP_slave.c:128:20:LoRaInit	120	static,ignoring_inline_asm
+LoRa_APP_slave.c:271:20:ActiveABPMode	16	static
+LoRa_APP_slave.c:285:20:LoRaTransmitData	136	static
+LoRa_APP_slave.c:299:6:LoRaCommand	16	static
+LoRa_APP_slave.c:313:20:LoRaResCheck	16	static
+LoRa_APP_slave.c:334:20:LoRaTxResCheck	16	static
+LoRa_APP_slave.c:357:6:LoRaChipReset	16	static
+LoRa_APP_slave.c:369:20:WakeUpTrigger	16	static
+LoRa_APP_slave.c:387:20:CheckJoinStatus	16	static
+LoRa_APP_slave.c:397:20:EnterSleep	16	static
