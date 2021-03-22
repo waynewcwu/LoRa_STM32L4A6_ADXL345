@@ -48,9 +48,13 @@ Update Note:
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+IWDG_HandleTypeDef hiwdg;
+
 RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
+
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart3;
 
@@ -73,6 +77,8 @@ char NodeStatus;
 fftInstance XfftInstance;
 fftInstance YfftInstance;
 fftInstance ZfftInstance;
+//TODO for IWDG Freeze By Standby Mode
+FLASH_OBProgramInitTypeDef pOBInit;
 
 /* USER CODE END PV */
 
@@ -82,6 +88,8 @@ static void MX_GPIO_Init(void);
 static void MX_RTC_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_IWDG_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 //TODO--wayne
 
@@ -128,15 +136,21 @@ int main(void)
   MX_RTC_Init();
   MX_SPI1_Init();
   MX_USART3_UART_Init();
+  MX_IWDG_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   //TODO--Wayne20200925
   RUN_PWR_Mode_Init(&hrtc);
   USARTLoRa.Status=WakeUp;
+//  USARTLoRa.Status=CMDdebug;
   while(HAL_UART_Receive_IT(&huart3,&USARTLoRa.Rbuffer,1)!=HAL_OK);
   //delay_init(168);
   //delay_init(80);//STM32L4A6 HCLK=80MHz
   delay_init(16);//STM32L4A6 HCLK=16MHz
   ADXL345_Init();
+
+  IWDGFreezeBySTDBY();
+  //HAL_NVIC_SystemReset();
   /*
   setting Device power mode:
   PWRST.PowerMode =
@@ -218,6 +232,9 @@ int main(void)
     			//TODO:Lora send data
     			LoRa_USART(&huart3);
 
+    			//IWDG_Refresh
+    			HAL_IWDG_Refresh(&hiwdg);
+
     			//TODO:MCU Standby Entry
     			EnterStandbyPWR_Mode(&hrtc);
     		}
@@ -229,6 +246,9 @@ int main(void)
     			LoRa_USART(&huart3);
 
     			NodeStatus = TrigAcquire;
+
+    			//IWDG_Refresh
+    			HAL_IWDG_Refresh(&hiwdg);
 
     		}
 	  		  break;
@@ -296,6 +316,35 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_64;
+  hiwdg.Init.Window = 4000;
+  hiwdg.Init.Reload = 4095;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
+
 }
 
 /**
@@ -370,6 +419,51 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 1600-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 10-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -454,7 +548,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PD10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
@@ -530,6 +624,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   		  USARTLoRa.RxCount= 0;
   		  USARTLoRa.RevStrEndCount = 0;
   		  USARTLoRa.RevStrCount = 0;
+  		  char c;
+  		  char RxHead_Check[] = "\n\r>> mac rx";
+  		  for(c=0;c<=10;c++)
+  		  {
+  			USARTLoRa.RxHead[c]=USARTLoRa.RevData[c];
+  		  }
+  		  if(strcmp(USARTLoRa.RxHead, RxHead_Check ) == 0)
+  			USARTLoRa.LoRaRxflag = 1;
   	  }
     }
     else
@@ -548,7 +650,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
     }
 
-  if(USARTLoRa.RxCount>=64)//if don't receive "\n" Line feeds string full over to 64 byte, clear data
+  if(USARTLoRa.RxCount>=70)//if don't receive "\n" Line feeds string full over to 64 byte, clear data
   {
 	  USARTLoRa.RxCount=0;
   	  memset( USARTLoRa.RevData, 0, strlen((const char*)USARTLoRa.RevData) ); //clear Receive data
@@ -556,6 +658,49 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   while(HAL_UART_Receive_IT(&huart3,&USARTLoRa.Rbuffer,1)!=HAL_OK);
 }
 
+
+void IWDGFreezeBySTDBY(void)
+{
+
+	 HAL_FLASH_Unlock();
+
+	 __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR); //clear FLASH Option validity error flag
+
+	 HAL_FLASH_OB_Unlock();
+
+
+
+	 HAL_FLASHEx_OBGetConfig(&pOBInit); //Get Option bit setting
+
+
+	 //setup IWDG Freeze in standby mode
+	 pOBInit.OptionType = OPTIONBYTE_USER;
+
+	 pOBInit.USERType = OB_USER_IWDG_STDBY;
+
+	 pOBInit.USERConfig = OB_IWDG_STDBY_FREEZE;
+
+	 HAL_FLASHEx_OBProgram(&pOBInit);
+
+
+
+	 HAL_FLASH_OB_Lock();
+
+	 HAL_FLASH_Lock();
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @param  htim: TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == htim2.Instance)
+    {
+    	USARTLoRa.CrashTimerCount++;
+    }
+}
 
 /* USER CODE END 4 */
 

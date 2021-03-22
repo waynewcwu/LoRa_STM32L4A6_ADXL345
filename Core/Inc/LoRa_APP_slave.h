@@ -1,7 +1,7 @@
 /*
- * LoRa_App_slave.c V1.2
+ * LoRa_App_slave.c V2.0
  *
- *  Created on: Mar 11, 2021
+ *  Created on: Mar 23, 2021
  *      Author: Wayne Wu
  *
  *20200928----V1.1
@@ -9,8 +9,11 @@
  *20210311----V1.2
  *Add setup option: MaxEIRP, Tx power, Channel, Bandwidth.
  *Improve Frequency setup Function. Send data false by leave APB Mode issue.
+ *20210322----2.0
+ *Add all responses process flow.
+ *Add Hardware Reset function in wake-up step by chip crash.
+ *Add receive flag by loRaWaN in A class mode.
  */
-
 #ifndef INC_LORA_APP_SLAVE_H_
 #define INC_LORA_APP_SLAVE_H_
 
@@ -26,7 +29,7 @@
 #define SF 10 // SF12~SF7
 #define MaxEIRP 20 // 8~36(dBm)
 #define TxPower	20 // Rang <= MaxEIRP(dBm)
-#define Channel 16 //1~16 for 923 Band
+#define Channel 8 //1~16 for 923 Band
 #define BandWidth 125 //125 or 500(KHz)
 #define TxTimeBySec 60	//unit: Second
 #define CF_DevEUI "mac set_deveui 00F2A1C6BE5EA702"//64bits
@@ -58,7 +61,7 @@
 	#define Uart_Buffer_Size 460
 #endif
 
-#define Uart_RBuffer_Size 64
+#define Uart_RBuffer_Size 70
 
 //Set MaxEIRP Index command
 #if( MaxEIRP == 8 )
@@ -102,31 +105,31 @@
   */
 typedef enum
 {
-  LoRa_OK      		= 0x00U,
-  LoRa_Res_Err      = 0x01U,
-  LoRa_CF_FEQ_FAIL	= 0x02U,
-  LoRa_SAVE_FAIL	= 0x03U,
-  LoRa_CF_SF_FAIL	= 0x04U,
-  LoRa_CF_ADR_FAIL	= 0x05U,
-  LoRa_CF_DevEUI_FAIL	= 0x06U,
-  LoRa_CF_AppEUI_FAIL	= 0x07U,
-  LoRa_CF_DevAddr_FAIL	= 0x08U,
-  LoRa_CF_NwksKey_FAIL	= 0x09U,
-  LoRa_CF_AppsKey_FAIL	= 0x0aU,
-  LoRa_ABPCMD_FAIL		= 0x0bU,
-  LoRa_JoinABP_FAIL		= 0x0cU,
-  LoRa_TxCMD_FAIL		= 0x0dU,
-  LoRa_TxData_FAIL		= 0x0eU,
-  LoRa_TxData_WaitRes	= 0x0fU,
-  LoRa_WaKeUp			= 0x10U,
-  LoRa_PowerUp			= 0x11U,
-  LoRa_joined			= 0x12U,
-  LoRa_unjoined			= 0x13U,
-  LoRa_Sleep			= 0x14U,
-  LoRa_Sleep_FAIL		= 0x15U,
-  LoRa_CF_MaxEIRP_FAIL	= 0x16U,
-  LoRa_CF_TxPower_FAIL	= 0x17U,
-  LoRa_CF_ChBW_FAIL		= 0x18U,
+  LoRa_OK,
+  LoRa_Res_Err,
+  LoRa_Join_Invalid,
+  LoRa_Join_keys_not_init,
+  LoRa_Join_no_free_ch,
+  LoRa_Join_busy,
+  LoRa_Join_FAIL,
+  LoRa_TxData_FAIL,
+  LoRa_TxData_WaitRes,
+  LoRa_Tx_Invalid,
+  LoRa_Tx_not_joined,
+  LoRa_Tx_no_free_ch,
+  LoRa_Tx_busy,
+  LoRa_Tx_invalid_data_length,
+  LoRa_Tx_exceeded_data_length,
+  LoRa_Tx2_err,
+  LoRa_Tx2_RxReceived,
+  LoRa_WaKeUp,
+  LoRa_PowerUp,
+  LoRa_joined,
+  LoRa_unjoined,
+  LoRa_Sleep,
+  LoRa_Sleep_FAIL,
+  LoRa_unexpected_Err,
+  LoRa_HDRest,
 } LoRa_StatusTypeDef;
 
 
@@ -137,6 +140,8 @@ typedef struct
 	_Bool sendflag;
 	_Bool Revflag;
 	_Bool ResetRevflag;
+	_Bool LoRaRxflag;
+	_Bool CrashDetectStartflag;
 
 	//Data format change buffer, hex <> Dec&float
 	unsigned char __attribute__ ((aligned (32))) DataStrBuffer[Uart_Buffer_Size];
@@ -147,6 +152,8 @@ typedef struct
 	//char __attribute__ ((aligned (32))) buffer[Uart_Buffer_Size];
 	uint8_t Rbuffer;
 	unsigned char __attribute__ ((aligned (32))) RevData[Uart_RBuffer_Size];
+	unsigned char __attribute__ ((aligned (32))) RevDatabk[Uart_RBuffer_Size];
+	unsigned char __attribute__ ((aligned (32))) RxHead[11];
 
 	uint8_t Res_Check[32];
 	uint32_t Command;
@@ -159,17 +166,20 @@ typedef struct
 	char Status;
 	char ResStatus;
 	uint8_t TxTimerSecCount;
+	int CrashTimerCount;
 } USART_LoRa;
 
 //Define Acsip LoRa AT Command
 #define LoRaSave	"mac save"
 #define LoRaReset	"sip reset"
+#define LoRaFacReset"sip factory_reset"
 #define ActiveABP	"mac join abp"
 #define SendUcfP1	"mac tx ucnf 1 "
 #define ADRoff		"mac set_adr off"
 #define WKUPtigger  "WakeUp" // send any string to interrupted (waked up) by UART
 #define CkJoinSt  	"mac get_join_status"
 #define Sleep4200s	"sip sleep 4200 uart_on" //sleep 4200 seconds, uart Trigger wake up
+#define Offtxconfirm	"mac set_tx_confirm off"
 
 /* Exported constants --------------------------------------------------------*/
 enum
@@ -181,8 +191,26 @@ enum
 	SendData,
 	waitTxRes,
 	EnterSleepMode,
-
+	CMDdebug,
 };
+
+typedef enum
+{
+	LoRa_CF_UnConfig,
+	LoRa_CF_FEQ,
+  	LoRa_CF_SF,
+  	LoRa_CF_ADR,
+  	LoRa_CF_DevEUI,
+  	LoRa_CF_AppEUI,
+  	LoRa_CF_DevAddr,
+  	LoRa_CF_NwksKey,
+  	LoRa_CF_AppsKey,
+  	LoRa_CF_MaxEIRP,
+  	LoRa_CF_TxPower,
+ 	LoRa_CF_ChBW,
+ 	LoRa_CF_Finished,
+}LoRa_ConfigureStatusTypeDef;
+
 
 /* Exported functions prototypes ---------------------------------------------*/
 void LoRa_USART(UART_HandleTypeDef *huart);
@@ -191,12 +219,18 @@ LoRa_StatusTypeDef LoRaInit(UART_HandleTypeDef *huart);
 LoRa_StatusTypeDef LoRaResCheck(uint32_t *Res);
 LoRa_StatusTypeDef ActiveABPMode(UART_HandleTypeDef *huart);
 void LoRaChipReset(UART_HandleTypeDef *huart);
+void LoRaFactorReset(UART_HandleTypeDef *huart);
 LoRa_StatusTypeDef LoRaTransmitData(UART_HandleTypeDef *huart);
-LoRa_StatusTypeDef LoRaTxResCheck(uint32_t *Res);
 LoRa_StatusTypeDef WakeUpTrigger(UART_HandleTypeDef *huart);
 LoRa_StatusTypeDef CheckJoinStatus(UART_HandleTypeDef *huart);
 LoRa_StatusTypeDef EnterSleep(UART_HandleTypeDef *huart);
-
+LoRa_StatusTypeDef Check_2ResMsg(uint32_t *Res1, uint32_t *Res2);
+LoRa_StatusTypeDef Check_JoinResMsg();
+LoRa_StatusTypeDef Check_Tx1stResMsg();
+LoRa_StatusTypeDef Check_Tx2stResMsg();
+LoRa_StatusTypeDef LoRaSaveCF(UART_HandleTypeDef *huart);
+LoRa_StatusTypeDef LoRachipCrashDetect_HDRST(TIM_HandleTypeDef *htim);
+void LoRachipCrashDetect_Stop(TIM_HandleTypeDef *htim);
 /* Exported macro ------------------------------------------------------------*/
 #define min(a, b) ((a) < (b)) ? (a) : (b)
 #define max(a, b) ((a) > (b)) ? (a) : (b)

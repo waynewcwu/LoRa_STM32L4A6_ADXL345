@@ -1,5 +1,6 @@
-Core/Src/LoRa_APP_slave.o: ../Core/Src/LoRa_APP_slave.c \
- ../Core/Inc/main.h ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal.h \
+Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_iwdg.o: \
+ ../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_iwdg.c \
+ ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal.h \
  ../Core/Inc/stm32l4xx_hal_conf.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_rcc.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_def.h \
@@ -35,13 +36,7 @@ Core/Src/LoRa_APP_slave.o: ../Core/Src/LoRa_APP_slave.c \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_tim.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_tim_ex.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart.h \
- ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart_ex.h \
- ../Core/Inc/PWR_Standby.h ../Core/Inc/LoRa_APP_slave.h \
- ../Core/Inc/ADXL345_cal_ex.h ../Core/Inc/ADXL.h ../Core/Inc/Delay.h \
- ../Core/Inc/arm_const_structs.h ../Core/Inc/arm_math.h \
- ../Core/Inc/arm_common_tables.h ../Core/Inc/Calculate_statistic.h
-
-../Core/Inc/main.h:
+ ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart_ex.h
 
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal.h:
 
@@ -116,21 +111,3 @@ Core/Src/LoRa_APP_slave.o: ../Core/Src/LoRa_APP_slave.c \
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart.h:
 
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart_ex.h:
-
-../Core/Inc/PWR_Standby.h:
-
-../Core/Inc/LoRa_APP_slave.h:
-
-../Core/Inc/ADXL345_cal_ex.h:
-
-../Core/Inc/ADXL.h:
-
-../Core/Inc/Delay.h:
-
-../Core/Inc/arm_const_structs.h:
-
-../Core/Inc/arm_math.h:
-
-../Core/Inc/arm_common_tables.h:
-
-../Core/Inc/Calculate_statistic.h:
